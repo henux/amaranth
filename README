@@ -1,0 +1,17 @@
+amaranth README
+
+Amaranth is a minimal command line music player which I created for my own
+amusement and as a programming challenge during the Christmas 2009, not
+intended to be anything big or versatile.  It is able to play various kinds
+of music formats, including but not limited to WAV, Ogg Vorbis and MP3.  I
+have also plans to implement a feature to allow Amaranth to stream music
+directly from the Internet by using HTTP and FTP protocols.
+
+Amaranth is named after the Nightwish song of the same name.  Enjoy!
+
+
+REQUIREMENTS
+
+    * libSDL
+    * libSDL_sound
+
