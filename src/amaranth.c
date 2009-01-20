@@ -23,6 +23,21 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "SDL.h"
 #include "SDL_sound.h"
 
+/* Sound stream filename. */
+static const char *filename = NULL;
+
+/* Sampling rate bits/second (-r option). */
+static int sample_rate = 44100;
+
+/* Sample format (-f option). */
+static Uint16 sample_format = AUDIO_S16LSB;
+
+/* Number of channels (-c option). */
+static Uint8 channel_count = 2;
+
+/* Audio buffer size in samples (-s option). */
+static Uint16 samples = 4096;
+
 /*
 ** Audio stream callback.
 **
@@ -32,74 +47,92 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 ** is reached, closes the audio stream and exits cleanly.
 */
 static void
-stream_callback (void *userdata, Uint8 *stream, int length)
+stream_callback (void *userdata, Uint8 *buffer, int length)
 {
-  Sound_Sample *sample = (Sound_Sample *) userdata;
+  Sound_Sample *stream = (Sound_Sample *) userdata;
 
   Uint32 bytes_decoded;
 
   /* Decode a chunk of PCM samples from the sound stream. */
-  Sound_SetBufferSize (sample, length);
-  bytes_decoded = Sound_Decode (sample);
+  Sound_SetBufferSize (stream, length);
+  bytes_decoded = Sound_Decode (stream);
 
   if (bytes_decoded == 0) {
     /* End-of-stream reached; exit cleanly. */
-    Sound_FreeSample (sample);
+    Sound_FreeSample (stream);
     Sound_Quit ();
     SDL_Quit ();
     exit (0);
   }
 
   /* Copy the decoded samples to the audio buffer. */
-  memcpy (stream, sample->buffer, length);
+  memcpy (buffer, stream->buffer, length);
+}
+
+/* Process command line options from the program arguments. */
+static void
+options (int argc, char **argv)
+{
 }
 
 int
 main (int argc, char **argv)
 {
   Sound_AudioInfo  info;
-  Sound_Sample    *sample;
+  Sound_Sample    *stream;
   SDL_AudioSpec    spec;
 
   /* Handle command line options. */
-  if (argc < 2) {
-    fprintf (stderr, "Usage: amaranth FILE\n");
+  if (options (argc, argv) < 0) {
+    puts ("Usage: amaranth OPTIONS FILE\n\n");
+    puts ("Options\n");
+    puts ("    -r RATE    sampling rate bits/second (default: 441000)\n");
+    puts ("    -f FMT     sample format (default: signed 16-bit little-endian)\n");
+    puts ("    -c COUNT   number of channels (default: 2)\n");
+    puts ("    -s SIZE    audio buffer size in samples (default: 4096)\n");
+    puts ("\nFormats accepted by -f option:\n");
+    puts ("    S16LSB     signed 16-bit little-endian\n");
     return 1;
   }
   
   /* Initialize SDL audio subsystem. */
   if (SDL_Init (SDL_INIT_AUDIO) < 0) {
-    fprintf (stderr, "amaranth: cannot initialize SDL audio: %s\n", SDL_GetError ());
+    fprintf (stderr, "amaranth: cannot initialize SDL audio: %s\n",
+             SDL_GetError ());
     return 1;
   }
 
   /* Initialize SDL_sound library. */
   if (Sound_Init () < 0) {
-    fprintf (stderr, "amaranth: cannot initialize SDL_sound: %s\n", Sound_GetError ());
+    fprintf (stderr, "amaranth: cannot initialize SDL_sound: %s\n",
+             Sound_GetError ());
     return 1;
   }
 
   /* Open the sound stream. */
-  info.format   = AUDIO_S16LSB;
-  info.channels = 2;
-  info.rate     = 44100;
+  info.format   = sample_format;
+  info.channels = channel_count;
+  info.rate     = sample_rate;
 
-  sample = Sound_NewSampleFromFile (argv[1], &info, 4096);
-  if (sample == NULL) {
-    fprintf (stderr, "amaranth: cannot open sound stream %s: %s\n", argv[1], Sound_GetError ());
+  stream = Sound_NewSampleFromFile (filename, &info, 4096);
+
+  if (stream == NULL) {
+    fprintf (stderr, "amaranth: cannot open sound stream %s: %s\n",
+             filename, Sound_GetError ());
     return 1;
   }
   
   /* Open the audio device. */
-  spec.freq     = 44100;
-  spec.format   = AUDIO_S16LSB;
-  spec.channels = 2;
-  spec.samples  = 1024;
+  spec.freq     = sample_rate;
+  spec.format   = sample_format;
+  spec.channels = channel_count;
+  spec.samples  = samples;
   spec.callback = stream_callback;
-  spec.userdata = (void *) sample;
+  spec.userdata = (void *) stream;
 
   if (SDL_OpenAudio (&spec, NULL) < 0) {
-    fprintf (stderr, "amaranth: cannot open audio device: %s\n", SDL_GetError ());
+    fprintf (stderr, "amaranth: cannot open audio device: %s\n",
+             SDL_GetError ());
     return 1;
   }
 
